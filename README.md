@@ -26,11 +26,11 @@ You (plan) → test-writer → coder → reviewer → (pass/fail)
 ## Installation
 
 ```bash
+# Git
+pi install git:github.com/3DAlgoLab/pi-tdd-pipeline
+
 # Local development
 pi -e ./path/to/pi-tdd-pipeline
-
-# Git
-pi install git:github.com/<your-repo>/pi-tdd-pipeline
 ```
 
 ## Commands
