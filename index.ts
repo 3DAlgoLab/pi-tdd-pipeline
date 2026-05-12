@@ -3,7 +3,7 @@
  *
  * Provides:
  * - Single-mode subagent (delegates to bundled agents)
- * - Loop infrastructure (start/stop/resume/iteration tracking)
+ * - TDD pipeline management tool (start/stop/resume/status/cancel)
  *
  * Agents are bundled in the agents/ directory and loaded automatically.
  */
@@ -136,11 +136,6 @@ function loadBundledAgents(): AgentConfig[] {
 }
 
 // ============================================================================
-// SUBAGENT (SINGLE MODE ONLY)
-// ============================================================================
-
-
-// ============================================================================
 // LOOP INFRASTRUCTURE
 // ============================================================================
 
@@ -152,27 +147,7 @@ function formatPipeline(p: PipelineState): string {
   return `${p.name}: ${status} (feature ${progress})`;
 }
 
-// ============================================================================
-// COMMANDS
-// ============================================================================
-
-const HELP = `TDD Pipeline - TDD workflow with loop infrastructure
-
-Commands:
-  /tdd start <name> <features>  Start a new TDD pipeline
-  /tdd stop                     Pause current pipeline
-  /tdd resume <name>            Resume a paused pipeline
-  /tdd status                   Show all pipelines
-  /tdd list                     Show all pipelines
-  /tdd cancel <name>            Delete pipeline state
-
-Features should be comma-separated or listed one per line.
-
-Example:
-  /tdd start auth "Add login, Fix session, Refresh token"`;
-
 export default function (pi: ExtensionAPI) {
-  // Load bundled agents
   const agents = loadBundledAgents();
 
   // Register subagent tool (single mode only)
@@ -287,118 +262,119 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerCommand("tdd", {
-    description: "TDD Pipeline - TDD workflow with loop infrastructure",
-    handler: async (args, ctx) => {
-      const [cmd] = args.trim().split(/\s+/);
-      const rest = args.slice(cmd.length).trim();
-
-      if (cmd === "start") {
-        const parts = rest.split(/\s+/);
-        if (parts.length < 2) {
-          ctx.ui.notify("Usage: /tdd start <name> <features...>", "warning");
-          return;
+  // Register TDD pipeline management tool
+  pi.registerTool({
+    name: "tdd",
+    label: "TDD Pipeline",
+    description: "Manage TDD pipeline state: start, stop, resume, status, cancel",
+    parameters: Type.Object({
+      command: Type.Union([
+        Type.Literal("start"),
+        Type.Literal("stop"),
+        Type.Literal("resume"),
+        Type.Literal("status"),
+        Type.Literal("cancel"),
+      ]),
+      name: Type.Optional(Type.String({ description: "Pipeline name" })),
+      features: Type.Optional(Type.Array(Type.String({ description: "Features to implement" }))),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      switch (params.command) {
+        case "start": {
+          if (!params.name || !params.features?.length) {
+            return {
+              content: [{ type: "text", text: "Usage: command='start', name='<name>', features=['feature1', 'feature2']" }],
+              details: {},
+            };
+          }
+          const state: PipelineState = {
+            name: sanitize(params.name),
+            features: params.features,
+            currentFeatureIndex: 0,
+            status: "active",
+            startedAt: new Date().toISOString(),
+          };
+          saveState(ctx, state);
+          const taskFile = path.join(TDD_DIR, `${state.name}.md`);
+          const taskContent = `# TDD Pipeline: ${params.name}\n\n## Features\n${params.features.map((f) => `- [ ] ${f}`).join("\n")}\n\n## Progress\n(Update as you work through each feature)\n\n## Notes\n(Blockers, decisions, reflections)\n`;
+          const fullPath = path.resolve(ctx.cwd, taskFile);
+          ensureDir(fullPath);
+          fs.writeFileSync(fullPath, taskContent, "utf-8");
+          return {
+            content: [{ type: "text", text: `Started TDD pipeline: ${params.name} (${params.features.length} features)` }],
+            details: {},
+          };
         }
-
-        const name = parts[0];
-        const features = parts.slice(1).join(" ").split(",").map((f) => f.trim()).filter(Boolean);
-        if (features.length === 0) {
-          ctx.ui.notify("Usage: /tdd start <name> <features...>", "warning");
-          return;
+        case "stop": {
+          const active = listPipelines(ctx).find((p) => p.status === "active");
+          if (!active) {
+            return {
+              content: [{ type: "text", text: "No active TDD pipeline" }],
+              details: {},
+            };
+          }
+          active.status = "paused";
+          saveState(ctx, active);
+          return {
+            content: [{ type: "text", text: `Paused TDD pipeline: ${active.name}` }],
+            details: {},
+          };
         }
-
-        const state: PipelineState = {
-          name: sanitize(name),
-          features,
-          currentFeatureIndex: 0,
-          status: "active",
-          startedAt: new Date().toISOString(),
-        };
-
-        saveState(ctx, state);
-
-        // Create task file
-        const taskFile = path.join(TDD_DIR, `${state.name}.md`);
-        const taskContent = `# TDD Pipeline: ${name}
-
-## Features
-${features.map((f, i) => `- [ ] ${f}`).join("\n")}
-
-## Progress
-(Update as you work through each feature)
-
-## Notes
-(Blockers, decisions, reflections)
-`;
-        const fullPath = path.resolve(ctx.cwd, taskFile);
-        ensureDir(fullPath);
-        fs.writeFileSync(fullPath, taskContent, "utf-8");
-
-        ctx.ui.notify(`Started TDD pipeline: ${name} (${features.length} features)`, "info");
-        return;
-      }
-
-      if (cmd === "stop") {
-        const active = listPipelines(ctx).find((p) => p.status === "active");
-        if (!active) {
-          ctx.ui.notify("No active TDD pipeline", "warning");
-          return;
+        case "resume": {
+          if (!params.name) {
+            return {
+              content: [{ type: "text", text: "Usage: command='resume', name='<name>'" }],
+              details: {},
+            };
+          }
+          const state = loadState(ctx, params.name);
+          if (!state) {
+            return {
+              content: [{ type: "text", text: `Pipeline "${params.name}" not found` }],
+              details: {},
+            };
+          }
+          state.status = "active";
+          saveState(ctx, state);
+          return {
+            content: [{ type: "text", text: `Resumed TDD pipeline: ${state.name} (feature ${state.currentFeatureIndex + 1}/${state.features.length})` }],
+            details: {},
+          };
         }
-
-        active.status = "paused";
-        saveState(ctx, active);
-        ctx.ui.notify(`Paused TDD pipeline: ${active.name}`, "info");
-        return;
-      }
-
-      if (cmd === "resume") {
-        const name = rest.trim();
-        if (!name) {
-          ctx.ui.notify("Usage: /tdd resume <name>", "warning");
-          return;
+        case "status": {
+          const pipelines = listPipelines(ctx);
+          if (pipelines.length === 0) {
+            return {
+              content: [{ type: "text", text: "No TDD pipelines found" }],
+              details: {},
+            };
+          }
+          return {
+            content: [{ type: "text", text: `TDD pipelines:\n${pipelines.map((p) => formatPipeline(p)).join("\n")}` }],
+            details: {},
+          };
         }
-
-        const state = loadState(ctx, name);
-        if (!state) {
-          ctx.ui.notify(`Pipeline "${name}" not found`, "error");
-          return;
-        }
-
-        state.status = "active";
-        saveState(ctx, state);
-        ctx.ui.notify(`Resumed TDD pipeline: ${state.name} (feature ${state.currentFeatureIndex + 1}/${state.features.length})`, "info");
-        return;
-      }
-
-      if (cmd === "status" || cmd === "list") {
-        const pipelines = listPipelines(ctx);
-        if (pipelines.length === 0) {
-          ctx.ui.notify("No TDD pipelines found", "info");
-          return;
-        }
-
-        ctx.ui.notify(`TDD pipelines:\n${pipelines.map((p) => formatPipeline(p)).join("\n")}`, "info");
-        return;
-      }
-
-      if (cmd === "cancel") {
-        const name = rest.trim();
-        if (!name) {
-          ctx.ui.notify("Usage: /tdd cancel <name>", "warning");
-          return;
-        }
-
-        try {
-          const statePath = getPath(ctx, name, ".state.json");
+        case "cancel": {
+          if (!params.name) {
+            return {
+              content: [{ type: "text", text: "Usage: command='cancel', name='<name>'" }],
+              details: {},
+            };
+          }
+          const statePath = getPath(ctx, params.name, ".state.json");
           if (fs.existsSync(statePath)) fs.unlinkSync(statePath);
-          ctx.ui.notify(`Cancelled TDD pipeline: ${name}`, "info");
-        } catch {
-          ctx.ui.notify(`Pipeline "${name}" not found`, "error");
+          return {
+            content: [{ type: "text", text: `Cancelled TDD pipeline: ${params.name}` }],
+            details: {},
+          };
         }
-        return;
+        default: {
+          return {
+            content: [{ type: "text", text: `Unknown command: ${params.command}` }],
+            details: {},
+          };
+        }
       }
-
-      ctx.ui.notify(HELP, "info");
     },
   });
 }

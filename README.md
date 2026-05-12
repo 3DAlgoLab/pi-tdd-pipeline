@@ -10,7 +10,7 @@ Provides a structured TDD workflow where the main agent orchestrates specialized
 You (plan) → test-writer → coder → reviewer → (pass/fail)
 ```
 
-- **Loop infrastructure** — Start, pause, resume, and track multi-feature TDD pipelines
+- **Loop infrastructure** — Start, pause, resume, and track multi-feature TDD pipelines via the `tdd` tool
 - **Single-mode subagent** — Delegate to bundled agents with isolated context
 - **Bundled agents** — No external dependencies; all agents ship with the package
 
@@ -29,6 +29,16 @@ You (plan) → test-writer → coder → reviewer → (pass/fail)
 
 Before the pipeline runs, the main agent interviews you about the task — asking targeted questions, exploring the codebase, resolving tradeoffs — until there's a shared understanding. Then it writes a plan file (`plan_[YYMMDD]_[hhmmss].md`) with goals, checklist, and test cases.
 
+### Pipeline Setup
+
+The main agent uses the `tdd` tool to initialize the pipeline:
+
+```
+tdd(command='start', name='<pipeline_name>', features=['feature1', 'feature2', 'feature3'])
+```
+
+This creates a task file in `.tdd/` with the feature checklist.
+
 ### TDD Pipeline
 
 For each feature, the pipeline runs sequentially:
@@ -40,17 +50,17 @@ For each feature, the pipeline runs sequentially:
 
 If even the veteran's final retry fails, a structured failure report is written to `.tdd/<name>-failure.md` and presented to you.
 
-### Loop Control
+### Pipeline Management
 
-Use `/tdd` commands to manage multi-feature pipelines:
+Use the `tdd` tool to manage multi-feature pipelines:
 
-| Command | Description |
-|---------|-------------|
-| `/tdd start <name> <features>` | Start a new TDD pipeline |
-| `/tdd stop` | Pause current pipeline |
-| `/tdd resume <name>` | Resume a paused pipeline |
-| `/tdd status` | Show all pipelines |
-| `/tdd cancel <name>` | Delete pipeline state |
+| Action | Tool Call |
+|--------|-----------|
+| Start | `tdd(command='start', name='<name>', features=['feature1', 'feature2'])` |
+| Stop | `tdd(command='stop')` |
+| Resume | `tdd(command='resume', name='<name>')` |
+| Status | `tdd(command='status')` |
+| Cancel | `tdd(command='cancel', name='<name>')` |
 
 ## Configuration
 
@@ -80,7 +90,7 @@ pi -e ./path/to/pi-tdd-pipeline
 
 ```
 pi-tdd-pipeline/
-├── index.ts              # Extension (loop + subagent)
+├── index.ts              # Extension (tools: subagent + tdd)
 ├── package.json          # Pi package manifest
 ├── agents/               # Bundled agents
 │   ├── test_writer.md

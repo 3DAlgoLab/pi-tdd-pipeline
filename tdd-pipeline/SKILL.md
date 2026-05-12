@@ -14,7 +14,24 @@ All code changes MUST be delegated to subagents. You are the orchestrator — yo
 1. **NEVER write implementation code directly.** All code changes go through `coder`.
 2. **NEVER skip the review gate.** No result is presented to the user without `reviewer` saying `PASS`.
 3. **NEVER skip a step.** The workflow below is sequential.
-4. **NEVER call tdd_done until the current feature is fully complete** (reviewer PASS or final failure report).
+4. **NEVER advance to the next feature until the current feature is fully complete** (reviewer PASS or final failure report).
+
+## Pipeline Setup
+
+Before running the TDD pipeline, use the `tdd` tool to initialize the pipeline:
+
+```
+tdd(command='start', name='<pipeline_name>', features=['feature1', 'feature2', 'feature3'])
+```
+
+This creates a task file in `.tdd/` with the feature checklist.
+
+Available commands:
+- `start` — Initialize a new pipeline (requires `name` and `features`)
+- `stop` — Pause the current pipeline
+- `resume` — Resume a paused pipeline (requires `name`)
+- `status` — List all pipelines
+- `cancel` — Delete pipeline state (requires `name`)
 
 ## ✅ Required Workflow (every feature/bug, no exceptions)
 
@@ -88,7 +105,7 @@ If the final retry also fails:
    - Veteran's diagnosis
    - Current blockers
 2. **Present the failure to the user** with the report path and a clear summary
-3. **Call `tdd_done`** to advance to the next feature (or complete the loop if last)
+3. **Advance** to the next feature (or complete the loop if last)
 
 ## 🔍 Self-audit (before every response to user)
 
