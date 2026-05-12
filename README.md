@@ -52,6 +52,20 @@ Use `/tdd` commands to manage multi-feature pipelines:
 | `/tdd status` | Show all pipelines |
 | `/tdd cancel <name>` | Delete pipeline state |
 
+## Configuration
+
+The bundled agents use `dpi-factory/coder` as the default model. Before using the pipeline, update the `model` field in each agent file (`agents/*.md`) to match your preferred model. For example:
+
+```yaml
+---
+name: coder
+description: ...
+model: openai/gpt-4o
+---
+```
+
+The `veteran` agent defaults to `deepseek/deepseek-v4-pro` — change it if you prefer a different model for escalation.
+
 ## Installation
 
 ```bash

@@ -1,5 +1,5 @@
 ---
-name: pi-tdd-pipeline
+name: tdd-pipeline
 description: TDD pipeline with loop infrastructure and specialized subagents (test-writer, coder, reviewer, veteran). You (the main agent) plan; subagents execute. Use when implementing features, fixing bugs, or making code changes where correctness and test coverage matter.
 ---
 
