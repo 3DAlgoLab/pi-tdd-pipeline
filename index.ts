@@ -216,17 +216,9 @@ export default function (pi: ExtensionAPI) {
       args.push("--append-system-prompt", tmpPath);
       args.push(`Task: ${params.task}`);
 
-      // Get the pi invocation
-      const currentScript = process.argv[1];
-      const isBunVirtual = currentScript?.startsWith("/$bunfs/root/");
-      if (currentScript && !isBunVirtual && fs.existsSync(currentScript)) {
-        return {
-          content: [{ type: "text", text: "Subagent execution requires pi subprocess" }],
-          details: {},
-        };
-      }
-
       // Spawn the subagent process
+      let resultOutput = "";
+
       const exitCode = await new Promise<number>((resolve) => {
         const proc = spawn("pi", args, {
           cwd: ctx.cwd,
@@ -235,22 +227,21 @@ export default function (pi: ExtensionAPI) {
         });
 
         let buffer = "";
-        let output = "";
 
-        proc.stdout.on("data", (data) => {
+        proc.stdout.on("data", (data: Buffer) => {
           buffer += data.toString();
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
 
           for (const line of lines) {
-            if (!line.trim()) return;
+            if (!line.trim()) continue;
             try {
               const event = JSON.parse(line);
               if (event.type === "message_end" && event.message) {
                 const msg = event.message;
                 if (msg.role === "assistant") {
                   for (const part of msg.content) {
-                    if (part.type === "text") output += part.text;
+                    if (part.type === "text") resultOutput += part.text;
                   }
                 }
               }
@@ -260,7 +251,7 @@ export default function (pi: ExtensionAPI) {
           }
         });
 
-        proc.on("close", (code) => {
+        proc.on("close", (code: number | null) => {
           resolve(code ?? 0);
         });
 
@@ -285,7 +276,7 @@ export default function (pi: ExtensionAPI) {
       }
 
       return {
-        content: [{ type: "text", text: output || "(no output)" }],
+        content: [{ type: "text", text: resultOutput || "(no output)" }],
         details: {},
       };
     },
