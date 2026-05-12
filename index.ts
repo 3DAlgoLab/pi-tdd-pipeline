@@ -139,23 +139,12 @@ function loadBundledAgents(): AgentConfig[] {
 // SUBAGENT (SINGLE MODE ONLY)
 // ============================================================================
 
-function formatUsageStats(usage: { input: number; output: number; turns: number }): string {
-  const parts: string[] = [];
-  if (usage.turns) parts.push(`${usage.turns} turn${usage.turns > 1 ? "s" : ""}`);
-  if (usage.input) parts.push(`↑${usage.input}`);
-  if (usage.output) parts.push(`↓${usage.output}`);
-  return parts.join(" ");
-}
 
 // ============================================================================
 // LOOP INFRASTRUCTURE
 // ============================================================================
 
 const STATUS_ICONS: Record<string, string> = { active: "▶", paused: "⏸", completed: "✓" };
-
-function updateUI(ctx: ExtensionContext): void {
-  // No active loop tracking - UI updates happen on command execution
-}
 
 function formatPipeline(p: PipelineState): string {
   const status = `${STATUS_ICONS[p.status]} ${p.status}`;
@@ -252,6 +241,22 @@ export default function (pi: ExtensionAPI) {
         });
 
         proc.on("close", (code: number | null) => {
+          // Flush remaining buffer (final line may lack trailing newline)
+          if (buffer.trim()) {
+            try {
+              const event = JSON.parse(buffer);
+              if (event.type === "message_end" && event.message) {
+                const msg = event.message;
+                if (msg.role === "assistant") {
+                  for (const part of msg.content) {
+                    if (part.type === "text") resultOutput += part.text;
+                  }
+                }
+              }
+            } catch {
+              // Ignore non-JSON remnants
+            }
+          }
           resolve(code ?? 0);
         });
 
@@ -297,6 +302,10 @@ export default function (pi: ExtensionAPI) {
 
         const name = parts[0];
         const features = parts.slice(1).join(" ").split(",").map((f) => f.trim()).filter(Boolean);
+        if (features.length === 0) {
+          ctx.ui.notify("Usage: /tdd start <name> <features...>", "warning");
+          return;
+        }
 
         const state: PipelineState = {
           name: sanitize(name),
