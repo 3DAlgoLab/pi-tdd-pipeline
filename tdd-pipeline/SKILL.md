@@ -1,6 +1,6 @@
 ---
 name: pi-tdd-pipeline
-description: TDD pipeline with loop infrastructure and specialized subagents (planner, test-writer, coder, reviewer, veteran). Use when implementing features, fixing bugs, or making code changes where correctness and test coverage matter.
+description: TDD pipeline with loop infrastructure and specialized subagents (test-writer, coder, reviewer, veteran). You (the main agent) plan; subagents execute. Use when implementing features, fixing bugs, or making code changes where correctness and test coverage matter.
 ---
 
 # TDD Pipeline Workflow
