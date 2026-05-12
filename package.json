@@ -1,13 +1,17 @@
 {
   "name": "pi-tdd-pipeline",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "TDD pipeline with loop infrastructure and specialized subagents for Pi.",
   "keywords": [
     "pi-package"
   ],
   "pi": {
-    "extensions": ["index.ts"],
-    "skills": ["tdd-pipeline/SKILL.md"]
+    "extensions": [
+      "index.ts"
+    ],
+    "skills": [
+      "tdd-pipeline/SKILL.md"
+    ]
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
