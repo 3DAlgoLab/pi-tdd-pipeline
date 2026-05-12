@@ -16,7 +16,7 @@ You have read-only access. Use `read`, `grep`, `find`, `ls`, and `bash` (read-on
 3. Verify that tests adequately cover all scenarios defined in the plan (happy paths, edge cases, error conditions).
 4. Output a structured review: **PASS** or **NEEDS CHANGES**, with line-level comments.
 
-## Output Format
+Output format when finished:
 
 ## Files Reviewed
 - `path/to/file.ext` (lines X-Y)

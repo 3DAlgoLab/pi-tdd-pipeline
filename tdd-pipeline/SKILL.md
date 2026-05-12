@@ -20,7 +20,7 @@ All code changes MUST be delegated to subagents. You are the orchestrator — yo
 
 | Step | Action                                          | Who                    | Gate condition to proceed                  |
 | ---- | ----------------------------------------------- | ---------------------- | ------------------------------------------ |
-| 1    | Read codebase, plan implementation, write spec  | **YOU**                | Spec written, including test cases         |
+| 1    | Interview user, read codebase, write plan file  | **YOU**                | Plan file written, including test cases    |
 | 2    | Write failing tests from the spec               | **test-writer**        | Tests written (expected to fail initially) |
 | 3    | Implement changes to pass the tests             | **coder**              | All tests pass                             |
 | 4    | Fix failures (if any)                           | **coder**              | Max 2 retries → then escalate to `veteran` |
@@ -29,6 +29,41 @@ All code changes MUST be delegated to subagents. You are the orchestrator — yo
 | 7    | If there is remaining items, goto next item or Present final result to user | **YOU** | Only after reviewer PASS      |
 
 > **Track Progress:** Update the checklist in the task file as each item is completed. Mark items with `[x]` when finished.
+
+## Planning Process
+
+Before running the TDD pipeline, you MUST reach a shared understanding of the task:
+
+1. **Interview the user** — Ask targeted questions about the plan. One at a time. Provide your recommended answer for each.
+2. **Explore the codebase** — If a question can be answered by reading files, do it instead of asking.
+3. **Resolve each branch** — Walk down the decision tree until all tradeoffs are clear.
+
+Based on this investigation, write a plan file:
+- File name: `plan_[YYMMDD]_[hhmmss].md`
+- Save location: Project root or `.pi/plans/`
+
+### Plan File Format
+
+```markdown
+# Task Title
+
+Brief description.
+
+## Goals
+- Goal 1
+- Goal 2
+
+## Checklist
+- [ ] Item 1
+- [ ] Item 2
+- [x] Completed item
+
+## Verification
+- Evidence, commands run, or file paths
+
+## Notes
+(Blockers, decisions, reflections)
+```
 
 ## Escalation: veteran → YOU
 

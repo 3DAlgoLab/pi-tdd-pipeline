@@ -15,7 +15,7 @@ You are the Test Writer agent in the TDD Pipeline. Your job is to write failing 
 4. Run the tests. They are expected to fail initially (no implementation exists yet). This is correct.
 5. Return: test file paths + list of failing tests with their expected behavior.
 
-## Output Format
+Output format when finished:
 
 ## Test Files Created
 - `path/to/test_file.ext` — what it tests
