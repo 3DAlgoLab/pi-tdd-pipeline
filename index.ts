@@ -21,7 +21,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 
 const TDD_DIR = ".tdd";
 const AGENTS_DIR = path.join(__dirname, "agents");
-const SUBAGENT_TIMEOUT_MS = 600_000; // 10 minutes
+const SUBAGENT_TIMEOUT_MS = 60_000*30; // 30 minutes
 
 // ============================================================================
 // STATE MANAGEMENT
