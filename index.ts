@@ -21,6 +21,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 
 const TDD_DIR = ".tdd";
 const AGENTS_DIR = path.join(__dirname, "agents");
+const SUBAGENT_TIMEOUT_MS = 600_000; // 10 minutes
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -29,7 +30,6 @@ const AGENTS_DIR = path.join(__dirname, "agents");
 interface PipelineState {
   name: string;
   features: string[];
-  currentFeatureIndex: number;
   status: "active" | "paused" | "completed";
   startedAt: string;
   completedAt?: string;
@@ -39,8 +39,14 @@ function sanitize(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]/g, "_").replace(/_+/g, "_");
 }
 
+/** Absolute path to the .tdd directory. */
+function getTddDir(ctx: ExtensionContext): string {
+  return path.join(ctx.cwd, TDD_DIR);
+}
+
+/** Absolute path to a TDD artifact (state file, task file, etc.). */
 function getPath(ctx: ExtensionContext, name: string, ext: string): string {
-  return path.join(TDD_DIR, `${sanitize(name)}${ext}`);
+  return path.join(getTddDir(ctx), `${sanitize(name)}${ext}`);
 }
 
 function ensureDir(filePath: string): void {
@@ -68,7 +74,7 @@ function saveState(ctx: ExtensionContext, state: PipelineState): void {
 }
 
 function listPipelines(ctx: ExtensionContext): PipelineState[] {
-  const dir = path.join(ctx.cwd, TDD_DIR);
+  const dir = getTddDir(ctx);
   if (!fs.existsSync(dir)) return [];
   return fs
     .readdirSync(dir)
@@ -87,7 +93,6 @@ function listPipelines(ctx: ExtensionContext): PipelineState[] {
 interface AgentConfig {
   name: string;
   description: string;
-  tools?: string[];
   model?: string;
   systemPrompt: string;
   filePath: string;
@@ -112,13 +117,11 @@ function loadBundledAgents(): AgentConfig[] {
     const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
     if (!frontmatterMatch) continue;
 
-    const frontmatterText = frontmatterMatch[1];
     const body = frontmatterMatch[2];
 
     const nameMatch = frontmatterMatch[1].match(/^name:\s*(.+)$/m);
     const descMatch = frontmatterMatch[1].match(/^description:\s*(.+)$/m);
     const modelMatch = frontmatterMatch[1].match(/^model:\s*(.+)$/m);
-    const toolsMatch = frontmatterMatch[1].match(/^tools:\s*(.+)$/m);
 
     if (!nameMatch || !descMatch) continue;
 
@@ -126,7 +129,6 @@ function loadBundledAgents(): AgentConfig[] {
       name: nameMatch[1].trim(),
       description: descMatch[1].trim(),
       model: modelMatch ? modelMatch[1].trim() : undefined,
-      tools: toolsMatch ? toolsMatch[1].split(",").map((t) => t.trim()) : undefined,
       systemPrompt: body,
       filePath,
     });
@@ -141,10 +143,20 @@ function loadBundledAgents(): AgentConfig[] {
 
 const STATUS_ICONS: Record<string, string> = { active: "▶", paused: "⏸", completed: "✓" };
 
-function formatPipeline(p: PipelineState): string {
+/** Count completed ([x]) and total items from the .tdd/<name>.md checklist. */
+function getMdProgress(ctx: ExtensionContext, name: string): { completed: number; total: number } {
+  const content = tryRead(getPath(ctx, name, ".md"));
+  if (!content) return { completed: 0, total: 0 };
+  const matches = content.match(/^\- \[([ xX])\]/gm);
+  const total = matches ? matches.length : 0;
+  const completed = matches ? matches.filter((m) => /^\- \[[xX]\]/.test(m)).length : 0;
+  return { completed, total };
+}
+
+function formatPipeline(ctx: ExtensionContext, p: PipelineState): string {
   const status = `${STATUS_ICONS[p.status]} ${p.status}`;
-  const progress = `${p.currentFeatureIndex + 1}/${p.features.length}`;
-  return `${p.name}: ${status} (feature ${progress})`;
+  const { completed, total } = getMdProgress(ctx, p.name);
+  return `${p.name}: ${status} (feature ${completed}/${total})`;
 }
 
 export default function (pi: ExtensionAPI) {
@@ -182,6 +194,7 @@ export default function (pi: ExtensionAPI) {
 
       // Spawn the subagent process
       let resultOutput = "";
+      let stderrOutput = "";
 
       const exitCode = await new Promise<number>((resolve) => {
         const proc = spawn("pi", args, {
@@ -189,6 +202,14 @@ export default function (pi: ExtensionAPI) {
           shell: false,
           stdio: ["ignore", "pipe", "pipe"],
         });
+
+        // Timeout: kill after 10 minutes
+        const timeout = setTimeout(() => {
+          proc.kill("SIGTERM");
+          setTimeout(() => {
+            if (!proc.killed) proc.kill("SIGKILL");
+          }, 5000);
+        }, SUBAGENT_TIMEOUT_MS);
 
         let buffer = "";
 
@@ -215,7 +236,13 @@ export default function (pi: ExtensionAPI) {
           }
         });
 
+        proc.stderr.on("data", (data: Buffer) => {
+          stderrOutput += data.toString();
+        });
+
         proc.on("close", (code: number | null) => {
+          clearTimeout(timeout);
+
           // Flush remaining buffer (final line may lack trailing newline)
           if (buffer.trim()) {
             try {
@@ -236,6 +263,7 @@ export default function (pi: ExtensionAPI) {
         });
 
         proc.on("error", () => {
+          clearTimeout(timeout);
           resolve(1);
         });
       });
@@ -249,8 +277,9 @@ export default function (pi: ExtensionAPI) {
       }
 
       if (exitCode !== 0) {
+        const errorDetail = stderrOutput ? `\n\nStderr:\n${stderrOutput}` : "";
         return {
-          content: [{ type: "text", text: `Agent ${params.agent} failed (exit code ${exitCode})` }],
+          content: [{ type: "text", text: `Agent ${params.agent} failed (exit code ${exitCode})${errorDetail}` }],
           details: {},
         };
       }
@@ -266,7 +295,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "tdd",
     label: "TDD Pipeline",
-    description: "Manage TDD pipeline state: start, stop, resume, status, cancel",
+    description: "Manage TDD pipeline state: start/stop/resume/status/cancel",
     parameters: Type.Object({
       command: Type.Union([
         Type.Literal("start"),
@@ -290,33 +319,36 @@ export default function (pi: ExtensionAPI) {
           const state: PipelineState = {
             name: sanitize(params.name),
             features: params.features,
-            currentFeatureIndex: 0,
             status: "active",
             startedAt: new Date().toISOString(),
           };
           saveState(ctx, state);
-          const taskFile = path.join(TDD_DIR, `${state.name}.md`);
+          const taskPath = getPath(ctx, state.name, ".md");
           const taskContent = `# TDD Pipeline: ${params.name}\n\n## Features\n${params.features.map((f) => `- [ ] ${f}`).join("\n")}\n\n## Progress\n(Update as you work through each feature)\n\n## Notes\n(Blockers, decisions, reflections)\n`;
-          const fullPath = path.resolve(ctx.cwd, taskFile);
-          ensureDir(fullPath);
-          fs.writeFileSync(fullPath, taskContent, "utf-8");
+          ensureDir(taskPath);
+          fs.writeFileSync(taskPath, taskContent, "utf-8");
           return {
             content: [{ type: "text", text: `Started TDD pipeline: ${params.name} (${params.features.length} features)` }],
             details: {},
           };
         }
         case "stop": {
-          const active = listPipelines(ctx).find((p) => p.status === "active");
-          if (!active) {
+          let target: PipelineState | undefined | null;
+          if (params.name) {
+            target = loadState(ctx, params.name);
+          } else {
+            target = listPipelines(ctx).find((p) => p.status === "active");
+          }
+          if (!target) {
             return {
               content: [{ type: "text", text: "No active TDD pipeline" }],
               details: {},
             };
           }
-          active.status = "paused";
-          saveState(ctx, active);
+          target.status = "paused";
+          saveState(ctx, target);
           return {
-            content: [{ type: "text", text: `Paused TDD pipeline: ${active.name}` }],
+            content: [{ type: "text", text: `Paused TDD pipeline: ${target.name}` }],
             details: {},
           };
         }
@@ -334,10 +366,17 @@ export default function (pi: ExtensionAPI) {
               details: {},
             };
           }
+          if (state.status === "active") {
+            return {
+              content: [{ type: "text", text: `Pipeline "${params.name}" is already active` }],
+              details: {},
+            };
+          }
           state.status = "active";
           saveState(ctx, state);
+          const rProgress = getMdProgress(ctx, state.name);
           return {
-            content: [{ type: "text", text: `Resumed TDD pipeline: ${state.name} (feature ${state.currentFeatureIndex + 1}/${state.features.length})` }],
+            content: [{ type: "text", text: `Resumed TDD pipeline: ${state.name} (feature ${rProgress.completed}/${rProgress.total})` }],
             details: {},
           };
         }
@@ -350,7 +389,7 @@ export default function (pi: ExtensionAPI) {
             };
           }
           return {
-            content: [{ type: "text", text: `TDD pipelines:\n${pipelines.map((p) => formatPipeline(p)).join("\n")}` }],
+            content: [{ type: "text", text: `TDD pipelines:\n${pipelines.map((p) => formatPipeline(ctx, p)).join("\n")}` }],
             details: {},
           };
         }
@@ -362,7 +401,9 @@ export default function (pi: ExtensionAPI) {
             };
           }
           const statePath = getPath(ctx, params.name, ".state.json");
+          const taskPath = getPath(ctx, params.name, ".md");
           if (fs.existsSync(statePath)) fs.unlinkSync(statePath);
+          if (fs.existsSync(taskPath)) fs.unlinkSync(taskPath);
           return {
             content: [{ type: "text", text: `Cancelled TDD pipeline: ${params.name}` }],
             details: {},

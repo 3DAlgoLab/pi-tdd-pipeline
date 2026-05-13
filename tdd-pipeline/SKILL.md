@@ -45,7 +45,7 @@ Available commands:
 | 6    | If reviewer says NEEDS CHANGES → back to step 3 | **coder**              | Re-test (step 2) then re-review (step 5)   |
 | 7    | If there is remaining items, goto next item or Present final result to user | **YOU** | Only after reviewer PASS      |
 
-> **Track Progress:** Update the checklist in the task file as each item is completed. Mark items with `[x]` when finished.
+> **Track Progress:** After reviewer says PASS, edit `.tdd/<pipeline_name>.md` and mark the feature `[x]` in the checklist. That file is the single source of truth for progress — `tdd status` and `tdd resume` read it.
 
 ## Planning Process
 
