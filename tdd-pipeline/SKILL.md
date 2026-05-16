@@ -82,6 +82,13 @@ Brief description.
 (Blockers, decisions, reflections)
 ```
 
+### Keep the Plan File Updated
+
+The plan file is your working record. Update it at each milestone:
+- **After each feature passes review:** mark the corresponding checklist item `[x]`
+- **After each feature passes review:** add a line under `## Verification` with evidence (file paths, test results)
+- **When a blocker arises:** note it under `## Notes`
+
 ## Escalation: veteran → YOU
 
 After 3 review cycles (step 5→6 loop) without `PASS`:
