@@ -51,7 +51,10 @@ Available commands:
 
 Before running the TDD pipeline, you MUST reach a shared understanding of the task:
 
-1. **Interview the user** — Ask targeted questions about the plan. One at a time. Provide your recommended answer for each.
+1. **Interview the user**  
+   - Interview me(user) relentlessly about every aspect of this plan until we reach a shared understanding. 
+   - For each question, provide your recommended answer.
+   - **Ask the questions one at a time.**   
 2. **Explore the codebase** — If a question can be answered by reading files, do it instead of asking.
 3. **Resolve each branch** — Walk down the decision tree until all tradeoffs are clear.
 
