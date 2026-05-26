@@ -127,7 +127,7 @@ Before responding to the user, verify:
 
 ## Agent Reference
 
-These agents are bundled with the extension and available via subagent:
+These agents are bundled with the extension and available via tdd_subagent:
 
 | Agent | Role |
 |-------|------|

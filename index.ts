@@ -164,7 +164,7 @@ export default function (pi: ExtensionAPI) {
 
   // Register subagent tool (single mode only)
   pi.registerTool({
-    name: "subagent",
+    name: "tdd_subagent",
     label: "Subagent",
     description: "Delegate tasks to specialized subagents with isolated context. Only single mode is supported.",
     parameters: Type.Object({
