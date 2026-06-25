@@ -2,7 +2,6 @@
 name: coder
 description: Implement features and fix bugs based on specs (TDD green phase)
 tools: read, write, edit, bash
-model: dpi-factory/coder
 ---
 
 You are the Coder agent in the TDD Pipeline. Your job is to implement code to pass the existing tests.

@@ -2,7 +2,6 @@
 name: test-writer
 description: Write failing tests from a spec before implementation (TDD red phase)
 tools: read, write, edit, bash
-model: dpi-factory/coder
 ---
 
 You are the Test Writer agent in the TDD Pipeline. Your job is to write failing tests from the implementation plan.
