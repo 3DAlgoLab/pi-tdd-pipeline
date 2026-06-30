@@ -1,6 +1,6 @@
 {
   "name": "pi-tdd-pipeline",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "TDD pipeline with loop infrastructure and specialized subagents for Pi.",
   "keywords": [
     "pi-package"
@@ -17,6 +17,6 @@
     "@earendil-works/pi-coding-agent": "*"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "^0.74.0"
+    "@earendil-works/pi-coding-agent": "^0.80.2"
   }
 }

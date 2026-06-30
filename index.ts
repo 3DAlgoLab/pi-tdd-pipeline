@@ -12,6 +12,11 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { spawn } from "node:child_process";
+
+/** Absolute path to the pi CLI entry point (resolves via node_modules). */
+const PI_CLI_PATH = require.resolve(
+  "@earendil-works/pi-coding-agent/dist/cli"
+);
 import { Type } from "typebox";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
@@ -20,7 +25,16 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 // ============================================================================
 
 const TDD_DIR = ".tdd";
-const AGENTS_DIR = path.join(__dirname, "agents");
+// Calculate agents dir relative to this file's location
+function getExtensionDir(): string {
+  // import.meta.url gives file:///C:/... on Windows which .pathname renders as /C:/...
+  // path.dirname("/C:/...") treats the leading / as separator → corrupt path.
+  // Normalize by stripping a leading "/" before a drive letter.
+  const raw = new URL(import.meta.url).pathname;
+  const normalized = raw.replace(/^\/([A-Za-z]:)/, "$1");
+  return path.dirname(normalized);
+}
+const AGENTS_DIR = path.join(getExtensionDir(), "agents");
 const SUBAGENT_TIMEOUT_MS = 60_000*30; // 30 minutes
 
 // ============================================================================
@@ -113,8 +127,8 @@ function loadBundledAgents(): AgentConfig[] {
     const filePath = path.join(AGENTS_DIR, entry.name);
     const content = fs.readFileSync(filePath, "utf-8");
 
-    // Parse frontmatter (simple YAML-like)
-    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+    // Parse frontmatter (simple YAML-like) — handle both LF and CRLF
+    const frontmatterMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
     if (!frontmatterMatch) continue;
 
     const body = frontmatterMatch[2];
@@ -197,7 +211,7 @@ export default function (pi: ExtensionAPI) {
       let stderrOutput = "";
 
       const exitCode = await new Promise<number>((resolve) => {
-        const proc = spawn("pi", args, {
+        const proc = spawn(process.execPath, [PI_CLI_PATH, ...args], {
           cwd: ctx.cwd,
           shell: false,
           stdio: ["ignore", "pipe", "pipe"],
