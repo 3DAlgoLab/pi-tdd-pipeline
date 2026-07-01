@@ -13,9 +13,17 @@ import * as path from "node:path";
 import * as os from "node:os";
 import { spawn } from "node:child_process";
 
-/** Absolute path to the pi CLI entry point (resolves via node_modules). */
-const PI_CLI_PATH = require.resolve(
-  "@earendil-works/pi-coding-agent/dist/cli"
+/** Absolute path to the pi CLI entry point (resolves via node_modules).
+ * Resolved manually because the package's `exports` map maps "." to
+ * "./dist/index.js", which causes require.resolve("pkg/dist/cli") to
+ * incorrectly produce "…/dist/index.js/dist/cli".
+ */
+const PI_CLI_BASE = require.resolve("@earendil-works/pi-coding-agent");
+const PI_CLI_PATH = path.join(
+  path.dirname(PI_CLI_BASE),
+  "..",
+  "dist",
+  "cli.js"
 );
 import { Type } from "typebox";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
